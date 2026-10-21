@@ -4,11 +4,14 @@
   <meta charset="UTF-8">
   <title>Simulador de Escalonamento SO - Tempo Compartilhado</title>
   <style>
+    /* Estilos gerais da página e dos painéis de controle */
     body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
     .control-panel { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
     .btn { padding: 8px 15px; margin-right: 5px; cursor: pointer; border: none; background: #007bff; color: white; border-radius: 4px; font-weight: bold; }
     .btn:disabled { background: #ccc; cursor: not-allowed; }
     #ganttCanvas { background: #ffffff; border: 1px solid #ccc; margin-top: 10px; display: block; }
+
+    /* Aparência do console de logs e dos indicadores de uso das CPUs */
     .info-box { font-family: monospace; background: #1e1e1e; color: #33ff33; padding: 10px; border-radius: 5px; height: 160px; overflow-y: auto; margin-top: 10px; }
     .cpu-metrics { display: flex; gap: 15px; margin-top: 10px; }
     .cpu-card { background: #eef2f7; padding: 10px; border-radius: 5px; border-left: 4px solid #007bff; font-size: 13px; }
@@ -19,6 +22,7 @@
 
   <h1>Simulador de Escalonamento SO (Projeto A)</h1>
 
+  <!-- Carregamento do cenário e comandos para controlar a simulação -->
   <div class="control-panel">
     <h3>1. Configuração do Sistema</h3>
     <input type="file" id="fileInput" accept=".txt">
@@ -32,6 +36,7 @@
     <button class="btn" id="btnExport" style="background: #17a2b8;">Exportar PNG Gantt</button>
   </div>
 
+  <!-- Indicadores de tempo ativo e ocioso para cada processador -->
   <div class="control-panel">
     <h3>3. Estado e Ociosidade dos Processadores</h3>
     <div id="cpuMetricsContainer" class="cpu-metrics">
@@ -39,11 +44,13 @@
     </div>
   </div>
 
+  <!-- Canvas onde o JavaScript desenha o histórico da simulação -->
   <div class="control-panel">
     <h3>4. Gráfico de Gantt Visual</h3>
     <canvas id="ganttCanvas" width="1000" height="400"></canvas>
   </div>
 
+  <!-- Controles para alterar parâmetros globais e atributos de uma tarefa -->
   <div class="control-panel">
     <h3>5. Modificação Dinâmica do Sistema / Debugger</h3>
     <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 5px;">
@@ -82,11 +89,13 @@
     </div>
   </div>
 
+  <!-- Mensagens de execução, avisos e resultados do simulador -->
   <div class="control-panel">
     <h3>6. Console de Logs do Sistema</h3>
     <div id="logOutput" class="info-box"></div>
   </div>
 
+  <!-- Carrega a lógica da simulação e conecta os controles da página -->
   <script src="simulator.js"></script>
 </body>
 </html>
