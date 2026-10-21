@@ -9,11 +9,13 @@ class TCB {
     this.prazo = parseInt(prazo);
     this.listaEventos = listaEventos || "";
 
+    //Define o estado inicial e os valores usados para controlar o próximo ciclo da tarefa
     this.estado = (this.ingresso === 0) ? "PRONTA" : "AGUARDANDO_INGRESSO";
     this.tempoRestanteCPU = parseInt(duracao); 
     this.proximoIngresso = parseInt(ingresso);
     this.deadlineAtual = parseInt(ingresso) + parseInt(prazo);
     this.execucoesConcluidas = 0; 
+    //Indica que a tarefa ainda não está associada a uma CPU
     this.cpuAtual = -1;
     this.ticksExecutadosContinuos = 0; 
   }
@@ -148,6 +150,7 @@ function parseConfigFile(conteudoTexto) {
   const linhas = conteudoTexto.split('\n');
   const linhasValidas = [];
 
+  //Remove espaços e ponto e vírgula final, ignorando linhas vazias
   for (let linha of linhas) {
     linha = linha.trim();
     if (linha.endsWith(';')) linha = linha.slice(0, -1).trim(); 
@@ -173,6 +176,7 @@ function parseConfigFile(conteudoTexto) {
   historicoExecucaoGantt = [];
   eventosGantt = [];
 
+  //Interpreta cada linha de tarefa e ignora as aperiódicas, não usadas neste projeto
   for (let i = 1; i < linhasValidas.length; i++) {
     const pTask = linhasValidas[i].split(';');
     const id = pTask[0].trim();
@@ -243,6 +247,7 @@ function salvarSnapshot() {
       cpuAtual: t.cpuAtual,
       ticksExecutadosContinuos: t.ticksExecutadosContinuos
     })),
+    //Copia os históricos para que alterações futuras não modifiquem o estado salvo
     gantt: JSON.parse(JSON.stringify(historicoExecucaoGantt)),
     eventos: JSON.parse(JSON.stringify(eventosGantt))
   };
@@ -379,6 +384,7 @@ function avancarTick() {
 function retrocederTick() {
   if (historicoEstados.length === 0) return; //Se está no início, não tem como retroceder
 
+  //Restaura o último snapshot do estado do sistema
   const ultimoEstado = historicoEstados.pop();
   configSistema.tickAtual = ultimoEstado.tickAtual;
   configSistema.algoritmo = ultimoEstado.algoritmo;
@@ -424,17 +430,20 @@ function todasTarefasConcluidas() {
          configSistema.tarefas.every(t => t.execucoesConcluidas >= 10);
 }
 
+//Atualiza o painel de métricas das CPUs, mostrando o tempo ativo e o tempo ocioso de cada CPU
 function atualizarMetricasCPUs() {
   const container = document.getElementById('cpuMetricsContainer');
   container.innerHTML = "";
 
   const totalTicks = configSistema.tickAtual;
 
+  //Calcula os ticks ativos e ociosos de cada CPU a partir do histórico de execução
   for (let cpu = 0; cpu < configSistema.qtdCpus; cpu++) {
     const ticksOciosa = historicoExecucaoGantt.filter(h => h.cpu === cpu && h.estado === "OCIOSA").length;
     const ticksAtiva = totalTicks - ticksOciosa;
     const pctOciosa = totalTicks > 0 ? ((ticksOciosa / totalTicks) * 100).toFixed(1) : "0.0";
 
+    //Cria um card visual para cada CPU, mostrando o tempo ativo e o tempo ocioso em ticks e porcentagem
     const card = document.createElement('div');
     card.className = "cpu-card";
     card.innerHTML = `
@@ -454,6 +463,7 @@ function desenharGantt() {
 
   if (tarefas.length === 0) return;
 
+  //Define dimensões e margens do canvas com base no número de ticks, tarefas e CPUs
   const totalTicks = Math.max(configSistema.tickAtual + 2, 20);
   const cellWidth = 35;
   const cellHeight = 30;
@@ -665,6 +675,7 @@ function exportarGanttParaPNG() {
   const canvas = document.getElementById('ganttCanvas');
   const imageURI = canvas.toDataURL("image/png");
 
+  //Cria um link temporário para download da imagem PNG do gráfico de Gantt
   const link = document.createElement('a');
   link.download = `gantt_escalonamento_tick_${configSistema.tickAtual}.png`;
   link.href = imageURI;
@@ -674,11 +685,14 @@ function exportarGanttParaPNG() {
   log("Gráfico de Gantt exportado em imagem PNG com sucesso!");
 }
 
+ //Atualiza os campos globais da interface com os valores atuais do sistema, permitindo ao usuário visualizar e modificar o algoritmo e quantum
 function atualizarCamposGlobaisGUI() {
+  //Sincroniza os controles da interface com os parâmetros atuais do sistema
   document.getElementById('selectGlobalAlgo').value = configSistema.algoritmo;
   document.getElementById('inputGlobalQuantum').value = configSistema.quantum;
 }
 
+//Aplica as modificações globais feitas pelo usuário, alterando o algoritmo de escalonamento e o quantum, e registrando o evento no log
 function aplicarModificacaoGlobal() {
   const novoAlgo = document.getElementById('selectGlobalAlgo').value;
   const novoQuantum = parseInt(document.getElementById('inputGlobalQuantum').value);
@@ -693,10 +707,11 @@ function aplicarModificacaoGlobal() {
   const algoAntigo = configSistema.algoritmo;
   const quantumAntigo = configSistema.quantum;
 
+  //Aplica os novos parâmetros somente depois de guardar o estado anterior para permitir desfazer
   configSistema.algoritmo = novoAlgo;
   configSistema.quantum = novoQuantum;
 
-  log(`MODIFICAÇÃO DINÂMICA (Req 3.1): Algoritmo alterado de '${algoAntigo}' para '${novoAlgo}', Quantum de ${quantumAntigo} para ${novoQuantum} ticks.`);
+  log(`MODIFICAÇÃO DINÂMICA: Algoritmo alterado de '${algoAntigo}' para '${novoAlgo}', Quantum de ${quantumAntigo} para ${novoQuantum} ticks.`);
   desenharGantt();
 }
 
@@ -705,6 +720,7 @@ function atualizarDropdownTarefas() {
   const select = document.getElementById('selectTaskEdit');
   select.innerHTML = "";
 
+  //Adiciona uma opção padrão para o dropdown, indicando que o usuário deve selecionar uma tarefa
   configSistema.tarefas.forEach(task => {
     const option = document.createElement('option');
     option.value = task.id;
@@ -744,6 +760,7 @@ function aplicarModificacaoTarefa() {
   }
 
   salvarSnapshot();
+  //Aplica as alterações na tarefa selecionada, atualizando seu estado, tempo restante de CPU e prazo
   const estadoAntigo = task.estado;
   task.estado = novoEstado;
   task.tempoRestanteCPU = novaDuracao;
