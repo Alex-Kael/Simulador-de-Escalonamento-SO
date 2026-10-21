@@ -10,6 +10,8 @@
     .btn:disabled { background: #ccc; cursor: not-allowed; }
     #ganttCanvas { background: #ffffff; border: 1px solid #ccc; margin-top: 10px; display: block; }
     .info-box { font-family: monospace; background: #1e1e1e; color: #33ff33; padding: 10px; border-radius: 5px; height: 160px; overflow-y: auto; margin-top: 10px; }
+    .cpu-metrics { display: flex; gap: 15px; margin-top: 10px; }
+    .cpu-card { background: #eef2f7; padding: 10px; border-radius: 5px; border-left: 4px solid #007bff; font-size: 13px; }
     label { font-weight: bold; font-size: 13px; }
   </style>
 </head>
@@ -20,9 +22,9 @@
   <div class="control-panel">
     <h3>1. Configuração do Sistema</h3>
     <input type="file" id="fileInput" accept=".txt">
-    <small style="margin-left: 10px; color: #555;">(Carregue um .txt para sobrescrever os valores padrão)</small>
+    <small style="margin-left: 10px; color: #555;">(Carregue um .txt do pendrive para sobrescrever)</small>
     <hr>
-    <h3>2. Controles de Simulação</h3>
+    <h3>2. Controles da Simulação</h3>
     <button class="btn" id="btnStep">Próximo Tick (Passo-a-Passo)</button>
     <button class="btn" id="btnBack" disabled>Voltar Tick (Undo)</button>
     <button class="btn" id="btnRunAll">Executar Tudo</button>
@@ -31,39 +33,57 @@
   </div>
 
   <div class="control-panel">
-    <h3>3. Gráfico de Gantt Visual</h3>
-    <canvas id="ganttCanvas" width="1000" height="350"></canvas>
+    <h3>3. Estado e Ociosidade dos Processadores</h3>
+    <div id="cpuMetricsContainer" class="cpu-metrics">
+      <div class="cpu-card">Aguardando início da simulação...</div>
+    </div>
   </div>
 
   <div class="control-panel">
-    <h3>4. Modificação Manual de Tarefa</h3>
-    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-      <label>Selecione a Tarefa:
+    <h3>4. Gráfico de Gantt Visual</h3>
+    <canvas id="ganttCanvas" width="1000" height="400"></canvas>
+  </div>
+
+  <div class="control-panel">
+    <h3>5. Modificação Dinâmica do Sistema / Debugger</h3>
+    <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 5px;">
+      <h4>Parâmetros Globais do Sistema:</h4>
+      <label>Algoritmo:
+        <select id="selectGlobalAlgo" style="padding: 5px;">
+          <option value="RM">Rate Monotonic (RM)</option>
+          <option value="EDF">Earliest Deadline First (EDF)</option>
+        </select>
+      </label>
+      <label>Quantum:
+        <input type="number" id="inputGlobalQuantum" min="1" style="width: 50px; padding: 5px;">
+      </label>
+      <button class="btn" id="btnApplyGlobalEdit" style="background: #6f42c1;">Alterar Algoritmo/Quantum</button>
+    </div>
+
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <h4>Atributos da Tarefa Selecionada:</h4>
+      <label>Tarefa:
         <select id="selectTaskEdit" style="padding: 5px;"></select>
       </label>
-
-      <label>Estado Atual:
+      <label>Estado:
         <select id="selectStateEdit" style="padding: 5px;">
           <option value="PRONTA">PRONTA</option>
           <option value="SUSPENSA">SUSPENSA</option>
           <option value="ESPERANDO_PERIODO">ESPERANDO_PERIODO</option>
         </select>
       </label>
-
       <label>Duração Restante:
-        <input type="number" id="inputDurationEdit" min="1" style="width: 60px; padding: 5px;">
+        <input type="number" id="inputDurationEdit" min="1" style="width: 50px; padding: 5px;">
       </label>
-
       <label>Prazo (Deadline):
-        <input type="number" id="inputDeadlineEdit" min="1" style="width: 60px; padding: 5px;">
+        <input type="number" id="inputDeadlineEdit" min="1" style="width: 50px; padding: 5px;">
       </label>
-
-      <button class="btn" id="btnApplyEdit" style="background: #28a745;">Aplicar Alteração</button>
+      <button class="btn" id="btnApplyEdit" style="background: #28a745;">Aplicar na Tarefa</button>
     </div>
   </div>
 
   <div class="control-panel">
-    <h3>5. Console de Logs do Sistema</h3>
+    <h3>6. Console de Logs do Sistema</h3>
     <div id="logOutput" class="info-box"></div>
   </div>
 

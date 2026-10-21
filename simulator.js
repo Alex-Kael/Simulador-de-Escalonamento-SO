@@ -53,7 +53,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
 //Carrega o cenário padrão do sistema
 function carregarCenarioPadrao() {
-  ultimoConteudoTexto = null; //Limpa o arquivo armazenado se voltar ao padrão do sistema
+  ultimoConteudoTexto = null;
   configSistema.algoritmo = "RM";
   configSistema.quantum = 2;
   configSistema.qtdCpus = 2;
@@ -71,10 +71,13 @@ function carregarCenarioPadrao() {
   
   eventosGantt.push({ tick: 0, taskId: 1, tipo: "INGRESSO" });
 
-  document.getElementById('logOutput').innerHTML = ""; //limpa o log de eventos
-  log(`Sistema inicializado com Parâmetros Padrão: Algoritmo=${configSistema.algoritmo}, Quantum=${configSistema.quantum}, CPUs=${configSistema.qtdCpus}`); 
-  atualizarDropdownTarefas(); //atualiza o dropdown de seleção de tarefas
-  desenharGantt(); //desenha o gráfico de Gantt inicial
+  document.getElementById('logOutput').innerHTML = "";
+  log(`Sistema inicializado com Parâmetros Padrão: Algoritmo=${configSistema.algoritmo}, Quantum=${configSistema.quantum}, CPUs=${configSistema.qtdCpus}`);
+  
+  atualizarCamposGlobaisGUI();
+  atualizarDropdownTarefas();
+  atualizarMetricasCPUs();
+  desenharGantt();
 }
 
 //Função de reinicio para o cenário inicial do sistema ou do arquivo carregado
@@ -93,7 +96,9 @@ function reiniciarSimulacao() {
   document.getElementById('btnRunAll').disabled = false;
   document.getElementById('btnBack').disabled = true;
 
+  atualizarCamposGlobaisGUI();
   atualizarDropdownTarefas();
+  atualizarMetricasCPUs();
   desenharGantt();
 }
 
@@ -105,6 +110,7 @@ function conectarEventos() {
   document.getElementById('btnRunAll').addEventListener('click', executarTudo);
   document.getElementById('btnReset').addEventListener('click', reiniciarSimulacao);
   document.getElementById('btnExport').addEventListener('click', exportarGanttParaPNG);
+  document.getElementById('btnApplyGlobalEdit').addEventListener('click', aplicarModificacaoGlobal);
   document.getElementById('btnApplyEdit').addEventListener('click', aplicarModificacaoTarefa);
   document.getElementById('selectTaskEdit').addEventListener('change', carregarCamposEdicao);
 }
@@ -118,9 +124,16 @@ function carregarArquivoConfig(e) {
   reader.onload = function(evt) {
     try {
       ultimoConteudoTexto = evt.target.result; //Guarda o texto original na variável
-      parseConfigFile(evt.target.result);
+      parseConfigFile(ultimoConteudoTexto);
       log(`Arquivo descarregado com sucesso! Algoritmo: ${configSistema.algoritmo}, Quantum: ${configSistema.quantum}, CPUs: ${configSistema.qtdCpus}`);
+
+      document.getElementById('btnStep').disabled = false;
+      document.getElementById('btnRunAll').disabled = false;
+      document.getElementById('btnBack').disabled = true;
+
+      atualizarCamposGlobaisGUI();
       atualizarDropdownTarefas();
+      atualizarMetricasCPUs();
       desenharGantt();
     } catch (err) {
       alert(`Erro no Arquivo de Configuração: ${err.message}`);
@@ -217,7 +230,9 @@ function compararPrioridadeComDesempate(a, b, tarefaExecutandoAtualmente, tickAt
 //salva o estado atual do sistema para voltar ticks
 function salvarSnapshot() {
   const snapshot = {
-    tickAtual: configSistema.tickAtual, 
+    tickAtual: configSistema.tickAtual,
+    algoritmo: configSistema.algoritmo,
+    quantum: configSistema.quantum,
     tarefas: configSistema.tarefas.map(t => ({
       id: t.id,
       estado: t.estado,
@@ -356,6 +371,7 @@ function avancarTick() {
 
   configSistema.tickAtual++;
   atualizarDropdownTarefas();
+  atualizarMetricasCPUs();
   desenharGantt();
 }
 
@@ -365,6 +381,8 @@ function retrocederTick() {
 
   const ultimoEstado = historicoEstados.pop();
   configSistema.tickAtual = ultimoEstado.tickAtual;
+  configSistema.algoritmo = ultimoEstado.algoritmo;
+  configSistema.quantum = ultimoEstado.quantum;
   historicoExecucaoGantt = ultimoEstado.gantt;
   eventosGantt = ultimoEstado.eventos;
 
@@ -385,7 +403,9 @@ function retrocederTick() {
   log(`<<< Retrocedido para o TICK ${configSistema.tickAtual}`);
   if (historicoEstados.length === 0) document.getElementById('btnBack').disabled = true;
 
+  atualizarCamposGlobaisGUI();
   atualizarDropdownTarefas();
+  atualizarMetricasCPUs();
   desenharGantt();
 }
 
@@ -404,6 +424,28 @@ function todasTarefasConcluidas() {
          configSistema.tarefas.every(t => t.execucoesConcluidas >= 10);
 }
 
+function atualizarMetricasCPUs() {
+  const container = document.getElementById('cpuMetricsContainer');
+  container.innerHTML = "";
+
+  const totalTicks = configSistema.tickAtual;
+
+  for (let cpu = 0; cpu < configSistema.qtdCpus; cpu++) {
+    const ticksOciosa = historicoExecucaoGantt.filter(h => h.cpu === cpu && h.estado === "OCIOSA").length;
+    const ticksAtiva = totalTicks - ticksOciosa;
+    const pctOciosa = totalTicks > 0 ? ((ticksOciosa / totalTicks) * 100).toFixed(1) : "0.0";
+
+    const card = document.createElement('div');
+    card.className = "cpu-card";
+    card.innerHTML = `
+      <strong>CPU ${cpu + 1}:</strong><br>
+      • Tempo Ativa: <b>${ticksAtiva} ticks</b><br>
+      • Tempo Desligada (OFF): <b>${ticksOciosa} ticks (${pctOciosa}%)</b>
+    `;
+    container.appendChild(card);
+  }
+}
+
 //Desenha o gráfico de Gantt no canvas, representando a execução das tarefas ao longo do tempo
 function desenharGantt() {
   const canvas = document.getElementById('ganttCanvas');
@@ -414,18 +456,22 @@ function desenharGantt() {
 
   const totalTicks = Math.max(configSistema.tickAtual + 2, 20);
   const cellWidth = 35;
-  const cellHeight = 35;
-  const marginLeft = 80;
+  const cellHeight = 30;
+  const marginLeft = 90;
   const marginTop = 40;
-  const marginBottom = 80;
+  const numCpus = configSistema.qtdCpus;
+
+  const alturaTarefas = tarefas.length * cellHeight;
+  const alturaCPUs = numCpus * cellHeight;
+  const marginBottom = 90;
 
   canvas.width = marginLeft + totalTicks * cellWidth + 20;
-  canvas.height = marginTop + tarefas.length * cellHeight + marginBottom;
+  canvas.height = marginTop + alturaTarefas + 30 + alturaCPUs + marginBottom;
 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  //Eixo X - Ticks
+  // 1. Eixo X (Ticks)
   ctx.fillStyle = "#333333";
   ctx.font = "12px Arial";
   ctx.textAlign = "center";
@@ -436,20 +482,19 @@ function desenharGantt() {
     ctx.strokeStyle = "#e0e0e0";
     ctx.beginPath();
     ctx.moveTo(x, marginTop);
-    ctx.lineTo(x, marginTop + tarefas.length * cellHeight);
+    ctx.lineTo(x, marginTop + alturaTarefas + 30 + alturaCPUs);
     ctx.stroke();
   }
 
-  
+  // 2. Eixo Y - Seção de TAREFAS (ID menor próximo do eixo X -)
   const tarefasOrdenadasGantt = [...tarefas].sort((a, b) => a.id - b.id);
 
-  //Eixo Y - Tarefas
   tarefasOrdenadasGantt.forEach((task, index) => {
     const linhaVisual = (tarefasOrdenadasGantt.length - 1) - index;
     const y = marginTop + linhaVisual * cellHeight;
 
     ctx.fillStyle = "#000000";
-    ctx.font = "bold 13px Arial";
+    ctx.font = "bold 12px Arial";
     ctx.textAlign = "right";
     ctx.fillText(`T${task.id}`, marginLeft - 10, y + cellHeight / 2 + 4);
 
@@ -457,37 +502,81 @@ function desenharGantt() {
     ctx.strokeRect(marginLeft, y, totalTicks * cellWidth, cellHeight);
   });
 
-  //Desenha os blocos de execução das tarefas no gráfico de Gantt com base no histórico de execução
+  // 3. Eixo Y - Seção Visual dos PROCESSADORES
+  const yInicioCPUs = marginTop + alturaTarefas + 25;
+  ctx.fillStyle = "#555555";
+  ctx.font = "bold 11px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("--- STATUS DAS CPUS ---", 10, yInicioCPUs - 8);
+
+  for (let c = 0; c < numCpus; c++) {
+    const yCpu = yInicioCPUs + c * cellHeight;
+    ctx.fillStyle = "#000000";
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "right";
+    ctx.fillText(`CPU ${c + 1}`, marginLeft - 10, yCpu + cellHeight / 2 + 4);
+
+    ctx.strokeStyle = "#aaaaaa";
+    ctx.strokeRect(marginLeft, yCpu, totalTicks * cellWidth, cellHeight);
+  }
+
+  // 4. Desenha blocos de execução nas Tarefas e Estado de Desligamento nas CPUs
   historicoExecucaoGantt.forEach(item => {
-    if (item.taskId === null || item.taskId === undefined) return;
-
-    const taskIndex = tarefasOrdenadasGantt.findIndex(t => t.id === item.taskId);
-    if (taskIndex === -1) return;
-
-    const linhaVisual = (tarefasOrdenadasGantt.length - 1) - taskIndex;
     const x = marginLeft + item.tick * cellWidth;
-    const y = marginTop + linhaVisual * cellHeight;
 
-    if (item.estado === "EXECUTANDO") {
-      ctx.fillStyle = item.cor || "#333333";
-      ctx.fillRect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
+    // Blocos na Seção de Tarefas
+    if (item.taskId !== null && item.taskId !== undefined) {
+      const taskIndex = tarefasOrdenadasGantt.findIndex(t => t.id === item.taskId);
+      if (taskIndex !== -1) {
+        const linhaVisual = (tarefasOrdenadasGantt.length - 1) - taskIndex;
+        const yTask = marginTop + linhaVisual * cellHeight;
 
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 11px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(`C${item.cpu + 1}`, x + cellWidth / 2, y + cellHeight / 2 + 4);
-    } else if (item.estado === "SUSPENSA") {
-      
-      ctx.fillStyle = "#000000";
-      for (let px = x + 4; px < x + cellWidth - 3; px += 5) {
-        for (let py = y + 4; py < y + cellHeight - 3; py += 5) {
-          ctx.fillRect(px, py, 2, 2);
+        if (item.estado === "EXECUTANDO") {
+          ctx.fillStyle = item.cor || "#333333";
+          ctx.fillRect(x + 1, yTask + 1, cellWidth - 2, cellHeight - 2);
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 10px Arial";
+          ctx.textAlign = "center";
+          ctx.fillText(`C${item.cpu + 1}`, x + cellWidth / 2, yTask + cellHeight / 2 + 3);
+        } else if (item.estado === "SUSPENSA") {
+          ctx.fillStyle = "#000000";
+          for (let px = x + 3; px < x + cellWidth - 3; px += 5) {
+            for (let py = yTask + 3; py < yTask + cellHeight - 3; py += 5) {
+              ctx.fillRect(px, py, 2, 2);
+            }
+          }
         }
+      }
+    }
+
+    // Blocos na Seção de Processadores (Ativa x Desligada / OFF)
+    if (item.cpu !== null && item.cpu !== undefined) {
+      const yCpu = yInicioCPUs + item.cpu * cellHeight;
+
+      if (item.estado === "OCIOSA") {
+        // CPU Desligada: Bloco cinza com "OFF"
+        ctx.fillStyle = "#6c757d";
+        ctx.fillRect(x + 1, yCpu + 1, cellWidth - 2, cellHeight - 2);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 9px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText("OFF", x + cellWidth / 2, yCpu + cellHeight / 2 + 3);
+      } else if (item.estado === "EXECUTANDO") {
+        // CPU Ativa: Bloco verde claro
+        ctx.fillStyle = "#28a745";
+        ctx.fillRect(x + 1, yCpu + 1, cellWidth - 2, cellHeight - 2);
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 9px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(`T${item.taskId}`, x + cellWidth / 2, yCpu + cellHeight / 2 + 3);
       }
     }
   });
 
-  //Desenha os eventos de ingresso, conclusão, deadline miss e sorteio no gráfico de Gantt
+  // 5. Ícones de Eventos
   eventosGantt.forEach(ev => {
     if (ev.tick > configSistema.tickAtual + 1) return;
 
@@ -500,28 +589,28 @@ function desenharGantt() {
 
     if (ev.tipo === "INGRESSO") {
       ctx.fillStyle = "#00aa00";
-      ctx.font = "bold 14px Arial";
+      ctx.font = "bold 13px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("↓", x + 6, y + 14); 
+      ctx.fillText("↓", x + 5, y + 12);
     } else if (ev.tipo === "CONCLUSAO") {
       ctx.fillStyle = "#0056b3";
-      ctx.font = "bold 12px Arial";
+      ctx.font = "bold 11px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("★", x, y + cellHeight - 5); 
+      ctx.fillText("★", x, y + cellHeight - 4);
     } else if (ev.tipo === "DEADLINE_MISS") {
       ctx.fillStyle = "#ff0000";
-      ctx.font = "bold 12px Arial";
+      ctx.font = "bold 11px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("✕", x + cellWidth - 8, y + 14); 
+      ctx.fillText("✕", x + cellWidth - 7, y + 12);
     } else if (ev.tipo === "SORTEIO") {
       ctx.fillStyle = "#e67e22";
-      ctx.font = "12px Arial";
+      ctx.font = "11px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("🎲", x + cellWidth / 2, y + 12); 
+      ctx.fillText("🎲", x + cellWidth / 2, y + 11);
     }
   });
 
-  desenharLegendaGantt(ctx, marginTop + tarefas.length * cellHeight + 25);
+  desenharLegendaGantt(ctx, yInicioCPUs + numCpus * cellHeight + 25);
 }
 
 //Desenha a legenda do gráfico de Gantt, explicando os símbolos e cores utilizados
@@ -583,6 +672,32 @@ function exportarGanttParaPNG() {
   link.click();
   document.body.removeChild(link);
   log("Gráfico de Gantt exportado em imagem PNG com sucesso!");
+}
+
+function atualizarCamposGlobaisGUI() {
+  document.getElementById('selectGlobalAlgo').value = configSistema.algoritmo;
+  document.getElementById('inputGlobalQuantum').value = configSistema.quantum;
+}
+
+function aplicarModificacaoGlobal() {
+  const novoAlgo = document.getElementById('selectGlobalAlgo').value;
+  const novoQuantum = parseInt(document.getElementById('inputGlobalQuantum').value);
+
+  if (isNaN(novoQuantum) || novoQuantum <= 0) {
+    alert("Erro de Validação: O quantum deve ser um número positivo.");
+    return;
+  }
+
+  salvarSnapshot();
+
+  const algoAntigo = configSistema.algoritmo;
+  const quantumAntigo = configSistema.quantum;
+
+  configSistema.algoritmo = novoAlgo;
+  configSistema.quantum = novoQuantum;
+
+  log(`MODIFICAÇÃO DINÂMICA (Req 3.1): Algoritmo alterado de '${algoAntigo}' para '${novoAlgo}', Quantum de ${quantumAntigo} para ${novoQuantum} ticks.`);
+  desenharGantt();
 }
 
 //Atualiza o dropdown de seleção de tarefas para edição, refletindo as tarefas atuais do sistema
