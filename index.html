@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Simulador de Escalonamento SO - Tempo Compartilhado</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
+    .control-panel { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .btn { padding: 8px 15px; margin-right: 5px; cursor: pointer; border: none; background: #007bff; color: white; border-radius: 4px; font-weight: bold; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+    #ganttCanvas { background: #ffffff; border: 1px solid #ccc; margin-top: 10px; display: block; }
+    .info-box { font-family: monospace; background: #1e1e1e; color: #33ff33; padding: 10px; border-radius: 5px; height: 160px; overflow-y: auto; margin-top: 10px; }
+    label { font-weight: bold; font-size: 13px; }
+  </style>
+</head>
+<body>
+
+  <h1>Simulador de Escalonamento SO (Projeto A)</h1>
+
+  <div class="control-panel">
+    <h3>1. Configuração do Sistema</h3>
+    <input type="file" id="fileInput" accept=".txt">
+    <small style="margin-left: 10px; color: #555;">(Carregue um .txt para sobrescrever os valores padrão)</small>
+    <hr>
+    <h3>2. Controles de Simulação</h3>
+    <button class="btn" id="btnStep">Próximo Tick (Passo-a-Passo)</button>
+    <button class="btn" id="btnBack" disabled>Voltar Tick (Undo)</button>
+    <button class="btn" id="btnRunAll">Executar Tudo</button>
+    <button class="btn" id="btnReset" style="background: #dc3545;">Reiniciar</button>
+    <button class="btn" id="btnExport" style="background: #17a2b8;">Exportar PNG Gantt</button>
+  </div>
+
+  <div class="control-panel">
+    <h3>3. Gráfico de Gantt Visual</h3>
+    <canvas id="ganttCanvas" width="1000" height="350"></canvas>
+  </div>
+
+  <div class="control-panel">
+    <h3>4. Modificação Manual de Tarefa</h3>
+    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+      <label>Selecione a Tarefa:
+        <select id="selectTaskEdit" style="padding: 5px;"></select>
+      </label>
+
+      <label>Estado Atual:
+        <select id="selectStateEdit" style="padding: 5px;">
+          <option value="PRONTA">PRONTA</option>
+          <option value="SUSPENSA">SUSPENSA</option>
+          <option value="ESPERANDO_PERIODO">ESPERANDO_PERIODO</option>
+        </select>
+      </label>
+
+      <label>Duração Restante:
+        <input type="number" id="inputDurationEdit" min="1" style="width: 60px; padding: 5px;">
+      </label>
+
+      <label>Prazo (Deadline):
+        <input type="number" id="inputDeadlineEdit" min="1" style="width: 60px; padding: 5px;">
+      </label>
+
+      <button class="btn" id="btnApplyEdit" style="background: #28a745;">Aplicar Alteração</button>
+    </div>
+  </div>
+
+  <div class="control-panel">
+    <h3>5. Console de Logs do Sistema</h3>
+    <div id="logOutput" class="info-box"></div>
+  </div>
+
+  <script src="simulator.js"></script>
+</body>
+</html>
