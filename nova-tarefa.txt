@@ -1,0 +1,13 @@
+// 1. Instancia a nova TCB (ID, Cor Hex, Ingresso, Duração, Período, Prazo, Eventos)
+const novaTask = new TCB("6", "FF00FF", configSistema.tickAtual, 3, 10, 10, "");
+
+// 2. Insere a nova tarefa no vetor global do sistema
+configSistema.tarefas.push(novaTask);
+
+// 3. Reordena o vetor por ID decrescente (necessário para a renderização correta do Gantt)
+configSistema.tarefas.sort((a, b) => b.id - a.id);
+
+// 4. Atualiza os seletores da interface e força a renderização no Canvas
+atualizarDropdownTarefas();
+desenharGantt();
+log(SISTEMA: Tarefa ID ${novaTask.id} inserida em tempo de execução no Tick ${configSistema.tickAtual}!);
